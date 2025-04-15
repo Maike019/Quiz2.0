@@ -253,6 +253,8 @@ let currentQuestionIndex = 0;
 let score = 0;
 let userName = "";
 let selectedQuestions = []; // Array für die zufällig ausgewählten Fragen
+let lastAnswerCorrect = false; // Speichert, ob die aktuelle Frage richtig beantwortet wurde
+let selectedAnswerButton = null; // Speichert den geklickten Button
 
 const nameInput = document.getElementById("name-input");
 const startButton = document.getElementById("start-button");
@@ -286,33 +288,80 @@ function showQuestion() {
     const currentQuestion = selectedQuestions[currentQuestionIndex];
     questionElement.textContent = currentQuestion.question;
     answersElement.innerHTML = "";
+    selectedAnswerButton = null; // zurücksetzen
 
     currentQuestion.answers.forEach(answer => {
         const button = document.createElement("button");
         button.textContent = answer.text;
-        button.addEventListener("click", () => selectAnswer(answer));
+        button.addEventListener("click", () => selectAnswer(button, answer, currentQuestion));
         answersElement.appendChild(button);
     });
+    nextButton.disabled = true;
 }
 
-function selectAnswer(answer) {
-    if (answer.correct) {
-        score++;
-    }
+function selectAnswer(button, answer, currentQuestion) {
+    // Entferne vorherige Markierungen
+    Array.from(answersElement.children).forEach(btn => {
+        btn.style.backgroundColor = "#f0f0f0";
+        btn.style.color = "#153953";
+        btn.dataset.selected = "";
+    });
+
+    // Markiere die ausgewählte Antwort
+    button.style.backgroundColor = "#007BFF";
+    button.style.color = "white";
+    button.dataset.selected = "true";
+
+    // Speichere den geklickten Button und die Antwort
+    selectedAnswerButton = button;
+    selectedAnswerButton.dataset.correct = answer.correct;
+
+    // Buttons deaktivieren, aber Markierung erst bei "Weiter"
+    Array.from(answersElement.children).forEach(btn => btn.disabled = true);
+
+    // Score-Logik: Merke, ob die Antwort richtig war
+    lastAnswerCorrect = !!answer.correct;
     nextButton.disabled = false;
 }
 
+// "Weiter"-Button Logik
 nextButton.addEventListener("click", () => {
-    currentQuestionIndex++;
-    if (currentQuestionIndex < selectedQuestions.length) {
-        showQuestion();
-        nextButton.disabled = true;
-    } else {
-        showResult();
+    // Markiere die Antworten (richtig/falsch)
+    const currentQuestion = selectedQuestions[currentQuestionIndex];
+    Array.from(answersElement.children).forEach(btn => {
+        const btnText = btn.textContent;
+        const answerObj = currentQuestion.answers.find(a => a.text === btnText);
+        if (answerObj.correct) {
+            btn.style.backgroundColor = "#28a745"; // grün für richtig
+            btn.style.color = "white";
+        }
+        if (btn === selectedAnswerButton && !answerObj.correct) {
+            btn.style.backgroundColor = "#dc3545"; // rot für falsch
+            btn.style.color = "white";
+        }
+    });
+
+    // Score erhöhen, falls letzte Antwort richtig war
+    if (lastAnswerCorrect) {
+        score++;
     }
+    lastAnswerCorrect = false; // zurücksetzen
+
+    // Nach kurzer Pause nächste Frage laden
+    setTimeout(() => {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < selectedQuestions.length) {
+            showQuestion();
+            nextButton.disabled = true;
+        } else {
+            showResult();
+        }
+    }, 1200); // 1,2 Sekunden Pause für Markierung
 });
 
+// "Überspringen"-Button Logik
 skipButton.addEventListener("click", () => {
+    lastAnswerCorrect = false; // keine Punkte beim Überspringen
     currentQuestionIndex++;
     if (currentQuestionIndex < selectedQuestions.length) {
         showQuestion();
